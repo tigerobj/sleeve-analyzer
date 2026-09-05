@@ -1,0 +1,4 @@
+# Generated plugin and documentation build products.
+build-plugin/
+build-manual/
+tests/*.exe

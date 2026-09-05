@@ -71,7 +71,8 @@ private:
     Doc_plugin_interface* dpi;
 };
 
-class Doc_plugin_interface : public Document_Interface
+class Doc_plugin_interface : public Document_Interface,
+                             public Document_Interface_Extension
 {
 public:
     Doc_plugin_interface(RS_Document *d, RS_GraphicView* gv, QWidget* parent);
@@ -88,6 +89,9 @@ public:
     void addEllipse(QPointF *start, QPointF *end, qreal ratio, qreal a1, qreal a2);
     virtual void addLines(std::vector<QPointF> const& points, bool closed=false);
     virtual void addPolyline(std::vector<Plug_VertexData> const& points, bool closed=false);
+    void addPolylineGroup(
+        std::vector<std::vector<Plug_VertexData> > const& polylines,
+        std::vector<bool> const& closed) override;
     virtual void addSplinePoints(std::vector<QPointF> const& points, bool closed=false);
     void addImage(int handle, QPointF *start, QPointF *uvr, QPointF *vvr,
                   int w, int h, QString name, int br, int con, int fade);

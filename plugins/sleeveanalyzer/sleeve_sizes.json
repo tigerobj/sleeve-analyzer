@@ -1,0 +1,64 @@
+{
+  "12": {
+    "default": "standard",
+    "variants": {
+      "standard": { "sleeve_length_mm": 512.7, "cuff_width_mm": 206.15 }
+    }
+  },
+  "XS": {
+    "default": "standard",
+    "variants": {
+      "standard": { "sleeve_length_mm": 550.8, "cuff_width_mm": 212.47 }
+    }
+  },
+  "S": {
+    "default": "standard",
+    "variants": {
+      "standard": { "sleeve_length_mm": 588.9, "cuff_width_mm": 218.82 }
+    }
+  },
+  "M": {
+    "default": "standard",
+    "variants": {
+      "standard": { "sleeve_length_mm": 627.0, "cuff_width_mm": 225.17 },
+      "short": { "sleeve_length_mm": 610.0, "cuff_width_mm": 0 },
+      "long": { "sleeve_length_mm": 645.0, "cuff_width_mm": 0 }
+    }
+  },
+  "L": {
+    "default": "standard",
+    "variants": {
+      "standard": { "sleeve_length_mm": 639.7, "cuff_width_mm": 234.72 }
+    }
+  },
+  "XL": {
+    "default": "standard",
+    "variants": {
+      "standard": { "sleeve_length_mm": 652.4, "cuff_width_mm": 244.30 }
+    }
+  },
+  "2L": {
+    "default": "standard",
+    "variants": {
+      "standard": { "sleeve_length_mm": 652.4, "cuff_width_mm": 253.82 }
+    }
+  },
+  "3L": {
+    "default": "standard",
+    "variants": {
+      "standard": { "sleeve_length_mm": 665.1, "cuff_width_mm": 263.37 }
+    }
+  },
+  "4L": {
+    "default": "standard",
+    "variants": {
+      "standard": { "sleeve_length_mm": 671.4, "cuff_width_mm": 268.15 }
+    }
+  },
+  "5L": {
+    "default": "standard",
+    "variants": {
+      "standard": { "sleeve_length_mm": 677.8, "cuff_width_mm": 272.92 }
+    }
+  }
+}

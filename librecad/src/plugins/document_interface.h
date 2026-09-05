@@ -268,6 +268,18 @@ public:
     virtual QString intColor2str(int color) = 0;
 };
 
+//! Optional, ABI-safe extensions implemented by newer document adapters.
+class Document_Interface_Extension
+{
+public:
+    virtual ~Document_Interface_Extension() = default;
+
+    //! Add several polylines as one undoable document operation.
+    virtual void addPolylineGroup(
+        std::vector<std::vector<Plug_VertexData> > const& polylines,
+        std::vector<bool> const& closed) = 0;
+};
+
 //! Interface for communicate plugins.
  /*!
  * Class for communicate plugins with document (drawing).
@@ -349,6 +361,7 @@ public:
     *  \param closed whether polyline is closed
     */
     virtual void addPolyline(std::vector<Plug_VertexData> const& points, bool closed=false) = 0;
+
     //! Add LC_SplinePoints entity to current document.
     /*! Add splinepoints entity to current document with current attributes.
     *  \param points interpolation points

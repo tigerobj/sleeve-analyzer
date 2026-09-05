@@ -942,6 +942,36 @@ void Doc_plugin_interface::addPolyline(std::vector<Plug_VertexData> const& point
 		RS_DEBUG->print("%s: currentContainer is nullptr", __func__);
 }
 
+void Doc_plugin_interface::addPolylineGroup(
+    std::vector<std::vector<Plug_VertexData> > const& polylines,
+    std::vector<bool> const& closed)
+{
+    if (!doc)
+        return;
+
+    const size_t count = std::min(polylines.size(), closed.size());
+    if (count == 0)
+        return;
+
+    // Keep the whole generated sleeve (outer contour plus reconstructed cuff
+    // lines) in one undo cycle.
+    LC_UndoSection undo(doc);
+    for (size_t i = 0; i < count; ++i) {
+        const std::vector<Plug_VertexData>& points = polylines.at(i);
+        if (points.size() < 2)
+            continue;
+        RS_PolylineData data;
+        if (closed.at(i))
+            data.setFlag(RS2::FlagClosed);
+        RS_Polyline* entity = new RS_Polyline(doc, data);
+        for (const Plug_VertexData& point : points)
+            entity->addVertex(RS_Vector(point.point.x(), point.point.y()),
+                              point.bulge);
+        doc->addEntity(entity);
+        undo.addUndoable(entity);
+    }
+}
+
 void Doc_plugin_interface::addSplinePoints(std::vector<QPointF> const& points, bool closed)
 {
     if (doc) {

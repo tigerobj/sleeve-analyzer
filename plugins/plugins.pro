@@ -16,6 +16,8 @@ SUBDIRS     = \
         list \
         sameprop \
         sample \
+        objectsize \
+        sleeveanalyzer \
         picfile \
         plotequation \
         gear
