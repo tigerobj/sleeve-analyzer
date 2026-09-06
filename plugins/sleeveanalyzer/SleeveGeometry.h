@@ -29,6 +29,12 @@ bool infiniteLineSegmentIntersection(const QPointF& linePoint,
                                      double* lineParameter = nullptr);
 double polylineLength(const QVector<QPointF>& points);
 
+// Return the minimum projection of an open polyline, including the exact
+// extrema of bulge arcs, onto a normalized axis measured from origin.
+double minimumAxialProjection(const QVector<SleeveVertex>& vertices,
+                              const QPointF& origin,
+                              const QPointF& axis);
+
 // Validate the sampled geometry of a closed polyline, including bulge arcs.
 // Consecutive duplicate vertices, duplicate segments, and self-intersections
 // are rejected.  This is deliberately a geometric check rather than a DXF

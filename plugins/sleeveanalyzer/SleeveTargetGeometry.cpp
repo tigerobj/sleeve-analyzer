@@ -45,9 +45,17 @@ TargetCuffGeometry SleeveTargetGeometry::calculate(
     const SleeveAnalyzer converter(analysis.drawingUnit);
     const double targetLengthDrawingUnit =
         converter.mmToDrawingUnit(targetSleeveLengthMM);
-    result.center = analysis.point3 + axis * targetLengthDrawingUnit;
+    const double capMinimumAxialDrawingUnit =
+        converter.mmToDrawingUnit(analysis.sleeveCapMinimumAxialMM);
+    // Sleeve length is the actual-size contour span from the farthest cap
+    // projection to the cuff centre.  P3 is an analysis reference point and
+    // may sit inside the cap, so placing the cuff exactly targetLength from
+    // P3 would make the generated outline too long by that cap overhang.
+    const double cuffAxialDistance =
+        targetLengthDrawingUnit + capMinimumAxialDrawingUnit;
+    result.center = analysis.point3 + axis * cuffAxialDistance;
     result.measuredSleeveLengthMM = converter.drawingUnitToMM(
-        SleeveGeometry::distance(analysis.point3, result.center));
+        cuffAxialDistance - capMinimumAxialDrawingUnit);
     result.valid = true;
 
     if (targetCuffWidthMM <= 0.0)

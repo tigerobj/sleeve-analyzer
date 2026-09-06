@@ -3,6 +3,7 @@
 #include <QtMath>
 #include <algorithm>
 #include <cmath>
+#include <limits>
 
 namespace SleeveGeometry {
 
@@ -96,6 +97,24 @@ double polylineLength(const QVector<QPointF>& points)
 
 namespace {
 
+constexpr double kPi = 3.14159265358979323846;
+
+double positiveAngle(double angle)
+{
+    angle = std::fmod(angle, 2.0 * kPi);
+    if (angle < 0.0)
+        angle += 2.0 * kPi;
+    return angle;
+}
+
+bool angleOnDirectedArc(double angle, double startAngle, double sweep)
+{
+    const double travelled = sweep >= 0.0
+        ? positiveAngle(angle - startAngle)
+        : positiveAngle(startAngle - angle);
+    return travelled <= qAbs(sweep) + 1.0e-10;
+}
+
 QVector<QPointF> sampleBulgedSegment(const SleeveVertex& start,
                                      const SleeveVertex& end)
 {
@@ -185,6 +204,51 @@ bool adjacent(int first, int second, int segmentCount)
 }
 
 } // namespace
+
+double minimumAxialProjection(const QVector<SleeveVertex>& vertices,
+                              const QPointF& origin,
+                              const QPointF& axis)
+{
+    const QPointF direction = normalized(axis);
+    if (vertices.isEmpty() || length(direction) <= kEpsilon)
+        return 0.0;
+
+    double minimum = std::numeric_limits<double>::max();
+    const auto addPoint = [&](const QPointF& point) {
+        minimum = qMin(minimum, dot(point - origin, direction));
+    };
+
+    for (int i = 0; i + 1 < vertices.size(); ++i) {
+        const SleeveVertex& start = vertices.at(i);
+        const SleeveVertex& end = vertices.at(i + 1);
+        addPoint(start.point);
+        addPoint(end.point);
+        if (qAbs(start.bulge) <= kEpsilon)
+            continue;
+
+        const QPointF chord = end.point - start.point;
+        const double chordLength = length(chord);
+        const double sweep = 4.0 * qAtan(start.bulge);
+        const double sine = qSin(qAbs(sweep) * 0.5);
+        if (chordLength <= kEpsilon || sine <= kEpsilon)
+            continue;
+
+        const double radius = chordLength / (2.0 * sine);
+        const QPointF midpoint = (start.point + end.point) * 0.5;
+        const QPointF normal = normalized(perpendicularLeft(chord));
+        const QPointF center = midpoint
+            + normal * (chordLength / (2.0 * qTan(sweep * 0.5)));
+        const double startAngle = qAtan2(start.point.y() - center.y(),
+                                         start.point.x() - center.x());
+        const double axisAngle = qAtan2(direction.y(), direction.x());
+        const double extrema[] = {axisAngle, axisAngle + kPi};
+        for (const double angle : extrema) {
+            if (angleOnDirectedArc(angle, startAngle, sweep))
+                addPoint(center + QPointF(qCos(angle), qSin(angle)) * radius);
+        }
+    }
+    return minimum == std::numeric_limits<double>::max() ? 0.0 : minimum;
+}
 
 bool isSimpleClosedPolyline(const QVector<SleeveVertex>& vertices,
                             double tolerance)

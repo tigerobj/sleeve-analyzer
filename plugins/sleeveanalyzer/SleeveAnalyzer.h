@@ -41,6 +41,11 @@ struct SleeveAnalysis
     double sleeveLengthMM = 0.0;
     double cuffWidthMM = 0.0;
     double sleeveCapLengthMM = 0.0;
+    // Signed axial projection of the farthest sleeve-cap point from P3.
+    // A negative value means that the cap extends beyond P3, opposite the
+    // cap-to-cuff axis.  Target geometry uses this to make the generated
+    // actual-size contour span the requested sleeve length.
+    double sleeveCapMinimumAxialMM = 0.0;
     int sleeveCapSegmentCount = 0;
 
     QVector<QPointF> sampledOutline;

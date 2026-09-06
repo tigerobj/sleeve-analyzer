@@ -11,6 +11,7 @@
 #include <QTemporaryFile>
 #include <QtMath>
 #include <iostream>
+#include <limits>
 
 namespace {
 
@@ -299,6 +300,8 @@ int main(int argc, char** argv)
     ok &= near(SleeveGeometry::length(matched.cuffDirection), 1.0,
                1.0e-12, "cuff direction normalized");
     ok &= near(matched.sleeveCapLengthMM, 461.545, 0.12, "sleeveCapLengthMM");
+    ok &= near(matched.sleeveCapMinimumAxialMM, -2.7764, 0.01,
+               "sleeve cap minimum axial projection");
     ok &= near(matched.sleeveCapSegmentCount, 54, 0.0, "sleeveCapSegmentCount");
 
     const double angle = qDegreesToRadians(73.0);
@@ -328,12 +331,21 @@ int main(int argc, char** argv)
 
     const TargetCuffGeometry target = SleeveTargetGeometry::calculate(
         matched, 627.0, 225.17);
+    const QPointF targetAxis = SleeveGeometry::normalized(
+        matched.sleeveAxis);
+    const SleeveAnalyzer targetConverter(matched.drawingUnit);
     if (!target.valid || !target.validCuff) {
         std::cerr << "Target cuff geometry was not generated.\n";
         ok = false;
     } else {
         ok &= near(target.measuredSleeveLengthMM, 627.0, 0.001,
                    "target sleeve length");
+        const double targetSpan = targetConverter.drawingUnitToMM(
+            SleeveGeometry::dot(target.center - matched.point3, targetAxis)
+            - targetConverter.mmToDrawingUnit(
+                matched.sleeveCapMinimumAxialMM));
+        ok &= near(targetSpan, 627.0, 0.001,
+                   "target actual-size contour span");
         ok &= near(target.measuredCuffWidthMM, 225.17, 0.001,
                    "target cuff width");
         ok &= SleeveGeometry::dot(target.center - matched.point3,
@@ -404,6 +416,17 @@ int main(int argc, char** argv)
         ok &= SleeveGeometry::distance(copiedCapEnd, matched.point1) <= 1.0e-7
               || SleeveGeometry::distance(copiedCapEnd, matched.point2) <= 1.0e-7;
         ok &= SleeveGeometry::isSimpleClosedPolyline(contour.vertices);
+        const double contourMinimum = SleeveGeometry::minimumAxialProjection(
+            contour.vertices, matched.point3, targetAxis);
+        double contourMaximum = -std::numeric_limits<double>::max();
+        for (const SleeveVertex& vertex : contour.vertices) {
+            contourMaximum = qMax(contourMaximum,
+                                  SleeveGeometry::dot(
+                                      vertex.point - matched.point3, targetAxis));
+        }
+        ok &= near(targetConverter.drawingUnitToMM(
+                       contourMaximum - contourMinimum),
+                   627.0, 0.001, "generated inner contour span");
     }
 
     const QVector<SleeveVertex> simpleRectangle = {

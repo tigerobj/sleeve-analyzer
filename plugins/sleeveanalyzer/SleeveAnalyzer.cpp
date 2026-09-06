@@ -394,6 +394,16 @@ SleeveAnalysis SleeveAnalyzer::analyze(const QVector<SleeveVertex>& input,
         dot(result.cuffCenter - result.point3, result.sleeveAxis));
     result.cuffWidthMM = drawingUnitToMM(cuff.chord);
     result.sleeveCapLengthMM = drawingUnitToMM(cap.exactLength);
+    QVector<SleeveVertex> capVertices;
+    int capVertex = cap.startVertex;
+    while (true) {
+        capVertices.append(vertices.at(capVertex));
+        if (capVertex == cap.endVertex)
+            break;
+        capVertex = (capVertex + 1) % vertices.size();
+    }
+    result.sleeveCapMinimumAxialMM = drawingUnitToMM(
+        minimumAxialProjection(capVertices, result.point3, result.sleeveAxis));
     result.sleeveCapSegmentCount = cap.segmentCount;
     result.sampledSleeveCap = cap.sampledPoints;
     result.sampledCuff = cuff.sampledPoints;

@@ -98,10 +98,18 @@ fallback。一般情況下使用圖面實測值。
 單位：
 
 ```text
-target.center = point3 + sleeveAxis * targetSleeveLength
-target.upper  = target.center + transverse * targetCuffWidth / 2
-target.lower  = target.center - transverse * targetCuffWidth / 2
+capMinimumAxial = minimum projection of the sleeve cap from P3
+cuffDistance    = targetSleeveLength + capMinimumAxial
+target.center   = point3 + sleeveAxis * cuffDistance
+target.upper    = target.center + transverse * targetCuffWidth / 2
+target.lower    = target.center - transverse * targetCuffWidth / 2
 ```
+
+`targetSleeveLength` is the actual-size inner-contour span from the farthest
+sleeve-cap projection to the cuff centre. P3 is only the sleeve-axis
+reference point; when the cap extends past P3, using
+`P3 + targetSleeveLength` would make the generated contour longer than
+requested.
 
 `SleeveSideGeometry::calculate()` 保留原袖山端點的起始方向驗證，但長袖
 側線本身只建立兩個點：
