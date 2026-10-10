@@ -2,63 +2,148 @@
   "12": {
     "default": "standard",
     "variants": {
-      "standard": { "sleeve_length_mm": 512.7, "cuff_width_mm": 206.15 }
+      "standard": {
+        "sleeve_length_mm": 512.7,
+        "cuff_width_mm": 206.15
+      }
     }
   },
   "XS": {
     "default": "standard",
     "variants": {
-      "standard": { "sleeve_length_mm": 550.8, "cuff_width_mm": 212.47 }
+      "standard": {
+        "sleeve_length_mm": 550.8,
+        "cuff_width_mm": 212.47
+      },
+      "長袖批次": {
+        "sleeve_length_mm": 530.0,
+        "cuff_width_mm": 170.0
+      }
     }
   },
   "S": {
     "default": "standard",
     "variants": {
-      "standard": { "sleeve_length_mm": 588.9, "cuff_width_mm": 218.82 }
+      "standard": {
+        "sleeve_length_mm": 588.9,
+        "cuff_width_mm": 218.82
+      },
+      "長袖批次": {
+        "sleeve_length_mm": 540.0,
+        "cuff_width_mm": 180.0
+      }
     }
   },
   "M": {
     "default": "standard",
     "variants": {
-      "standard": { "sleeve_length_mm": 627.0, "cuff_width_mm": 225.17 },
-      "short": { "sleeve_length_mm": 610.0, "cuff_width_mm": 0 },
-      "long": { "sleeve_length_mm": 645.0, "cuff_width_mm": 0 }
+      "standard": {
+        "sleeve_length_mm": 627.0,
+        "cuff_width_mm": 225.17
+      },
+      "short": {
+        "sleeve_length_mm": 610.0,
+        "cuff_width_mm": 220.0
+      },
+      "long": {
+        "sleeve_length_mm": 645.0,
+        "cuff_width_mm": 220.0
+      },
+      "長袖批次": {
+        "sleeve_length_mm": 550.0,
+        "cuff_width_mm": 190.0
+      }
     }
   },
   "L": {
     "default": "standard",
     "variants": {
-      "standard": { "sleeve_length_mm": 639.7, "cuff_width_mm": 234.72 }
+      "standard": {
+        "sleeve_length_mm": 639.7,
+        "cuff_width_mm": 234.72
+      },
+      "長袖批次": {
+        "sleeve_length_mm": 560.0,
+        "cuff_width_mm": 200.0
+      }
     }
   },
   "XL": {
     "default": "standard",
     "variants": {
-      "standard": { "sleeve_length_mm": 652.4, "cuff_width_mm": 244.30 }
+      "standard": {
+        "sleeve_length_mm": 652.4,
+        "cuff_width_mm": 244.3
+      },
+      "長袖批次": {
+        "sleeve_length_mm": 570.0,
+        "cuff_width_mm": 210.0
+      }
     }
   },
   "2L": {
     "default": "standard",
     "variants": {
-      "standard": { "sleeve_length_mm": 652.4, "cuff_width_mm": 253.82 }
+      "standard": {
+        "sleeve_length_mm": 652.4,
+        "cuff_width_mm": 253.82
+      },
+      "長袖批次": {
+        "sleeve_length_mm": 580.0,
+        "cuff_width_mm": 220.0
+      }
     }
   },
   "3L": {
     "default": "standard",
     "variants": {
-      "standard": { "sleeve_length_mm": 665.1, "cuff_width_mm": 263.37 }
+      "standard": {
+        "sleeve_length_mm": 665.1,
+        "cuff_width_mm": 263.37
+      },
+      "長袖批次": {
+        "sleeve_length_mm": 590.0,
+        "cuff_width_mm": 230.0
+      }
     }
   },
   "4L": {
     "default": "standard",
     "variants": {
-      "standard": { "sleeve_length_mm": 671.4, "cuff_width_mm": 268.15 }
+      "standard": {
+        "sleeve_length_mm": 671.4,
+        "cuff_width_mm": 268.15
+      },
+      "長袖批次": {
+        "sleeve_length_mm": 600.0,
+        "cuff_width_mm": 240.0
+      }
     }
   },
   "5L": {
     "default": "standard",
     "variants": {
-      "standard": { "sleeve_length_mm": 677.8, "cuff_width_mm": 272.92 }
+      "standard": {
+        "sleeve_length_mm": 677.8,
+        "cuff_width_mm": 272.92
+      },
+      "長袖批次": {
+        "sleeve_length_mm": 610.0,
+        "cuff_width_mm": 250.0
+      }
+    }
+  },
+  "6L": {
+    "default": "standard",
+    "variants": {
+      "standard": {
+        "sleeve_length_mm": 677.8,
+        "cuff_width_mm": 272.92
+      },
+      "長袖批次": {
+        "sleeve_length_mm": 620.0,
+        "cuff_width_mm": 260.0
+      }
     }
   }
 }

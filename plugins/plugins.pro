@@ -18,6 +18,7 @@ SUBDIRS     = \
         sample \
         objectsize \
         sleeveanalyzer \
+        libraryinsertfactorinspector \
         picfile \
         plotequation \
         gear
