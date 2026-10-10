@@ -1,5 +1,6 @@
 #include "../factorinspectordialog.h"
 
+#include <QGridLayout>
 #include <QLabel>
 #include <QtTest>
 
@@ -12,6 +13,8 @@ class FactorInspectorDialogTests : public QObject
 private slots:
     void showsLiveAndPersistedValuesSeparately();
     void labelsUnavailableLiveValue();
+    void identifiesPersistedValueSource();
+    void placesPersistedSourceAndRegistryKeyOnSeparateRows();
 };
 
 void FactorInspectorDialogTests::showsLiveAndPersistedValuesSeparately()
@@ -68,6 +71,57 @@ void FactorInspectorDialogTests::labelsUnavailableLiveValue()
     QVERIFY(liveFactor->text() != QStringLiteral("1"));
     QVERIFY(persistedFactor->text() != QStringLiteral("1"));
     QVERIFY(keyState->text().contains(QStringLiteral("missing"), Qt::CaseInsensitive));
+}
+
+void FactorInspectorDialogTests::identifiesPersistedValueSource()
+{
+    InspectorSnapshot snapshot;
+    snapshot.persistedFactorExists = true;
+    snapshot.persistedFactor = QStringLiteral("10");
+    snapshot.persistedFactorSource =
+        QStringLiteral("QSettings cache fallback (Win32 error 5)");
+
+    FactorInspectorDialog dialog(snapshot);
+    QLabel *source = dialog.findChild<QLabel *>(
+        QStringLiteral("persistedFactorSourceValue"));
+
+    QVERIFY(source);
+    QCOMPARE(source->text(),
+             QStringLiteral("QSettings cache fallback (Win32 error 5)"));
+}
+
+void FactorInspectorDialogTests::placesPersistedSourceAndRegistryKeyOnSeparateRows()
+{
+    InspectorSnapshot snapshot;
+    FactorInspectorDialog dialog(snapshot);
+    QGridLayout *valuesLayout = qobject_cast<QGridLayout *>(
+        dialog.layout()->itemAt(0)->layout());
+    QLabel *source = dialog.findChild<QLabel *>(
+        QStringLiteral("persistedFactorSourceValue"));
+    QLabel *keyState = dialog.findChild<QLabel *>(
+        QStringLiteral("persistedFactorKeyState"));
+
+    QVERIFY(valuesLayout);
+    QVERIFY(source);
+    QVERIFY(keyState);
+
+    int sourceRow = -1;
+    int sourceColumn = -1;
+    int sourceRowSpan = 0;
+    int sourceColumnSpan = 0;
+    int keyRow = -1;
+    int keyColumn = -1;
+    int keyRowSpan = 0;
+    int keyColumnSpan = 0;
+    valuesLayout->getItemPosition(valuesLayout->indexOf(source),
+                                  &sourceRow, &sourceColumn,
+                                  &sourceRowSpan, &sourceColumnSpan);
+    valuesLayout->getItemPosition(valuesLayout->indexOf(keyState),
+                                  &keyRow, &keyColumn,
+                                  &keyRowSpan, &keyColumnSpan);
+
+    QVERIFY2(sourceRow != keyRow,
+             "Persisted value source and registry key share a grid row.");
 }
 
 QTEST_MAIN(FactorInspectorDialogTests)

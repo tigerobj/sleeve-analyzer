@@ -19,6 +19,8 @@ HEADERS += \
     factorinspectorsnapshot.h \
     libraryinsertfactorinspector.h
 
+win32:LIBS += -ladvapi32
+
 DISTFILES += libraryinsertfactorinspector.json
 
 win32 {

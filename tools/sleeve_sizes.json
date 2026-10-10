@@ -1,0 +1,149 @@
+{
+  "12": {
+    "default": "standard",
+    "variants": {
+      "standard": {
+        "sleeve_length_mm": 512.7,
+        "cuff_width_mm": 206.15
+      }
+    }
+  },
+  "XS": {
+    "default": "standard",
+    "variants": {
+      "standard": {
+        "sleeve_length_mm": 530.0,
+        "cuff_width_mm": 170.0
+      },
+      "女版POLO長袖無束口": {
+        "sleeve_length_mm": 530.0,
+        "cuff_width_mm": 170.0
+      }
+    }
+  },
+  "S": {
+    "default": "standard",
+    "variants": {
+      "standard": {
+        "sleeve_length_mm": 540.0,
+        "cuff_width_mm": 180.0
+      },
+      "女版POLO長袖無束口": {
+        "sleeve_length_mm": 540.0,
+        "cuff_width_mm": 180.0
+      }
+    }
+  },
+  "M": {
+    "default": "standard",
+    "variants": {
+      "standard": {
+        "sleeve_length_mm": 550.0,
+        "cuff_width_mm": 190.0
+      },
+      "short": {
+        "sleeve_length_mm": 610.0,
+        "cuff_width_mm": 220.0
+      },
+      "long": {
+        "sleeve_length_mm": 645.0,
+        "cuff_width_mm": 220.0
+      },
+      "女版POLO長袖無束口": {
+        "sleeve_length_mm": 550.0,
+        "cuff_width_mm": 190.0
+      }
+    }
+  },
+  "L": {
+    "default": "standard",
+    "variants": {
+      "standard": {
+        "sleeve_length_mm": 560.0,
+        "cuff_width_mm": 200.0
+      },
+      "女版POLO長袖無束口": {
+        "sleeve_length_mm": 560.0,
+        "cuff_width_mm": 200.0
+      }
+    }
+  },
+  "XL": {
+    "default": "standard",
+    "variants": {
+      "standard": {
+        "sleeve_length_mm": 570.0,
+        "cuff_width_mm": 210.0
+      },
+      "女版POLO長袖無束口": {
+        "sleeve_length_mm": 570.0,
+        "cuff_width_mm": 210.0
+      }
+    }
+  },
+  "2L": {
+    "default": "standard",
+    "variants": {
+      "standard": {
+        "sleeve_length_mm": 580.0,
+        "cuff_width_mm": 220.0
+      },
+      "女版POLO長袖無束口": {
+        "sleeve_length_mm": 580.0,
+        "cuff_width_mm": 220.0
+      }
+    }
+  },
+  "3L": {
+    "default": "standard",
+    "variants": {
+      "standard": {
+        "sleeve_length_mm": 590.0,
+        "cuff_width_mm": 230.0
+      },
+      "女版POLO長袖無束口": {
+        "sleeve_length_mm": 590.0,
+        "cuff_width_mm": 230.0
+      }
+    }
+  },
+  "4L": {
+    "default": "standard",
+    "variants": {
+      "standard": {
+        "sleeve_length_mm": 600.0,
+        "cuff_width_mm": 240.0
+      },
+      "女版POLO長袖無束口": {
+        "sleeve_length_mm": 600.0,
+        "cuff_width_mm": 240.0
+      }
+    }
+  },
+  "5L": {
+    "default": "standard",
+    "variants": {
+      "standard": {
+        "sleeve_length_mm": 610.0,
+        "cuff_width_mm": 250.0
+      },
+      "女版POLO長袖無束口": {
+        "sleeve_length_mm": 610.0,
+        "cuff_width_mm": 250.0
+      }
+    }
+  },
+  "6L": {
+    "default": "standard",
+    "variants": {
+      "standard": {
+        "sleeve_length_mm": 620.0,
+        "cuff_width_mm": 260.0
+      },
+      "女版POLO長袖無束口": {
+        "sleeve_length_mm": 620.0,
+        "cuff_width_mm": 260.0
+      }
+    }
+  }
+}

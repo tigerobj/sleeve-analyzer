@@ -72,17 +72,20 @@ FactorInspectorDialog::FactorInspectorDialog(const InspectorSnapshot &snapshot,
         : tr("Not stored");
     addValueRow(valuesLayout, 2, tr("Persisted factor value:"),
                 QStringLiteral("persistedFactorValue"), storedValue);
+    addValueRow(valuesLayout, 3, tr("Persisted value source:"),
+                QStringLiteral("persistedFactorSourceValue"),
+                snapshot.persistedFactorSource);
 
     const QString keyPath = QStringLiteral("LibraryInsert/LibraryInsertFactor");
     const QString keyState = snapshot.persistedFactorExists
         ? tr("%1 — key exists").arg(keyPath)
         : tr("%1 — key missing; LibreCAD default 1.0 may be used").arg(keyPath);
-    addValueRow(valuesLayout, 3, tr("Registry/settings key:"),
+    addValueRow(valuesLayout, 4, tr("Registry/settings key:"),
                 QStringLiteral("persistedFactorKeyState"), keyState);
-    addValueRow(valuesLayout, 4, tr("Settings format:"),
+    addValueRow(valuesLayout, 5, tr("Settings format:"),
                 QStringLiteral("settingsFormatValue"),
                 settingsFormatText(snapshot.settingsFormat));
-    addValueRow(valuesLayout, 5, tr("Settings location:"),
+    addValueRow(valuesLayout, 6, tr("Settings location:"),
                 QStringLiteral("settingsLocationValue"), snapshot.settingsLocation);
 
     mainLayout->addLayout(valuesLayout);

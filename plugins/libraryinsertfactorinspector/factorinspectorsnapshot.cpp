@@ -75,6 +75,13 @@ LiveControlSnapshot readLiveControl(const OptionsPanes &panes,
 
 InspectorSnapshot inspectLibraryInsert(QWidget *hostWindow, QSettings &settings)
 {
+    return inspectLibraryInsert(hostWindow, settings, PersistedFactorOverride());
+}
+
+InspectorSnapshot inspectLibraryInsert(
+    QWidget *hostWindow, QSettings &settings,
+    const PersistedFactorOverride &persistedOverride)
+{
     InspectorSnapshot snapshot;
     const OptionsPanes panes = findLibraryInsertPanes(hostWindow);
     snapshot.liveFactor = readLiveControl(panes, QStringLiteral("leFactor"));
@@ -84,12 +91,23 @@ InspectorSnapshot inspectLibraryInsert(QWidget *hostWindow, QSettings &settings)
     while (!settings.group().isEmpty())
         settings.endGroup();
 
-    settings.beginGroup(QStringLiteral("LibraryInsert"));
-    snapshot.persistedFactorExists =
-        settings.contains(QStringLiteral("LibraryInsertFactor"));
-    if (snapshot.persistedFactorExists)
-        snapshot.persistedFactor = settings.value(QStringLiteral("LibraryInsertFactor"));
-    settings.endGroup();
+    if (persistedOverride.available) {
+        snapshot.persistedFactorExists = persistedOverride.exists;
+        snapshot.persistedFactor = persistedOverride.value;
+        snapshot.persistedFactorSource = persistedOverride.source.isEmpty()
+            ? QStringLiteral("Authoritative settings source")
+            : persistedOverride.source;
+    } else {
+        settings.beginGroup(QStringLiteral("LibraryInsert"));
+        snapshot.persistedFactorExists =
+            settings.contains(QStringLiteral("LibraryInsertFactor"));
+        if (snapshot.persistedFactorExists)
+            snapshot.persistedFactor = settings.value(QStringLiteral("LibraryInsertFactor"));
+        settings.endGroup();
+        snapshot.persistedFactorSource = QStringLiteral("QSettings in-process cache");
+        if (!persistedOverride.source.isEmpty())
+            snapshot.persistedFactorSource += QStringLiteral("; ") + persistedOverride.source;
+    }
 
     const QStringList originalGroups =
         originalGroup.split('/', QString::SkipEmptyParts);

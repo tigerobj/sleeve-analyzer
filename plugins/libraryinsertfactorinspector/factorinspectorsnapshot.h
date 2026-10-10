@@ -24,11 +24,21 @@ struct InspectorSnapshot {
     LiveControlSnapshot liveAngle;
     bool persistedFactorExists = false;
     QVariant persistedFactor;
+    QString persistedFactorSource;
     QSettings::Format settingsFormat = QSettings::NativeFormat;
     QString settingsLocation;
 };
 
+struct PersistedFactorOverride {
+    bool available = false;
+    bool exists = false;
+    QVariant value;
+    QString source;
+};
+
 InspectorSnapshot inspectLibraryInsert(QWidget *hostWindow, QSettings &settings);
+InspectorSnapshot inspectLibraryInsert(QWidget *hostWindow, QSettings &settings,
+                                        const PersistedFactorOverride &persistedOverride);
 
 } // namespace LibraryInsertFactorInspector
 

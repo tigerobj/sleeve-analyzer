@@ -41,6 +41,8 @@ private slots:
     void reportsHiddenControl();
     void reportsAmbiguousVisiblePanes();
     void distinguishesMissingKeyFromStoredOne();
+    void authoritativePersistedValueOverridesProcessCache();
+    void authoritativeMissingValueOverridesProcessCache();
     void snapshotDoesNotWriteSettings();
 };
 
@@ -155,6 +157,59 @@ void FactorInspectorSnapshotTests::distinguishesMissingKeyFromStoredOne()
     QCOMPARE(snapshot.persistedFactor.toString(), QStringLiteral("1"));
     QCOMPARE(snapshot.settingsFormat, QSettings::IniFormat);
     QCOMPARE(snapshot.settingsLocation, settings.fileName());
+}
+
+void FactorInspectorSnapshotTests::authoritativePersistedValueOverridesProcessCache()
+{
+    QWidget host;
+    QG_LibraryInsertOptions libraryOptions(&host);
+    libraryOptions.addField(QStringLiteral("leFactor"), QStringLiteral("10"));
+    host.show();
+    QApplication::processEvents();
+
+    QTemporaryDir directory;
+    QVERIFY(directory.isValid());
+    QSettings settings(directory.filePath(QStringLiteral("settings.ini")),
+                       QSettings::IniFormat);
+    settings.setValue(QStringLiteral("LibraryInsert/LibraryInsertFactor"),
+                      QStringLiteral("10"));
+    settings.sync();
+
+    PersistedFactorOverride persistedOverride;
+    persistedOverride.available = true;
+    persistedOverride.exists = true;
+    persistedOverride.value = QStringLiteral("1");
+
+    const InspectorSnapshot snapshot =
+        inspectLibraryInsert(&host, settings, persistedOverride);
+    QVERIFY(snapshot.persistedFactorExists);
+    QCOMPARE(snapshot.persistedFactor.toString(), QStringLiteral("1"));
+}
+
+void FactorInspectorSnapshotTests::authoritativeMissingValueOverridesProcessCache()
+{
+    QWidget host;
+    QG_LibraryInsertOptions libraryOptions(&host);
+    libraryOptions.addField(QStringLiteral("leFactor"), QStringLiteral("10"));
+    host.show();
+    QApplication::processEvents();
+
+    QTemporaryDir directory;
+    QVERIFY(directory.isValid());
+    QSettings settings(directory.filePath(QStringLiteral("settings.ini")),
+                       QSettings::IniFormat);
+    settings.setValue(QStringLiteral("LibraryInsert/LibraryInsertFactor"),
+                      QStringLiteral("10"));
+    settings.sync();
+
+    PersistedFactorOverride persistedOverride;
+    persistedOverride.available = true;
+    persistedOverride.exists = false;
+
+    const InspectorSnapshot snapshot =
+        inspectLibraryInsert(&host, settings, persistedOverride);
+    QVERIFY(!snapshot.persistedFactorExists);
+    QVERIFY(!snapshot.persistedFactor.isValid());
 }
 
 void FactorInspectorSnapshotTests::snapshotDoesNotWriteSettings()
