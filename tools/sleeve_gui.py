@@ -52,6 +52,35 @@ PI = math.pi
 DEFAULT_SEAM_ALLOWANCE_MM = 7.9375
 DEFAULT_CUFF_FOLD_DISTANCE_MM = 19.05
 
+# DXF $INSUNITS codes mapped to millimeters per drawing unit. Unitless files
+# retain the existing convention that their coordinates are interpreted as mm.
+# Gigameters and larger units produce coordinates smaller than the geometry
+# tolerance used by this sleeve analyzer, so those codes are intentionally not
+# accepted for generation.
+DXF_UNIT_SCALE_MM = {
+    0: 1.0,
+    1: 25.4,
+    2: 304.8,
+    3: 1_609_344_000.0,
+    4: 1.0,
+    5: 10.0,
+    6: 1_000.0,
+    7: 1_000_000.0,
+    8: 0.0000254,
+    9: 0.0254,
+    10: 914.4,
+    11: 0.0000001,
+    12: 0.000001,
+    13: 0.001,
+    14: 100.0,
+    15: 10_000.0,
+    16: 100_000.0,
+    21: 304.8006096012192,
+    22: 25.4000508001016,
+    23: 914.4018288036576,
+    24: 1_609_347.218694438,
+}
+
 Point = Tuple[float, float]
 
 
@@ -105,6 +134,13 @@ class SleeveParameters:
 
 @dataclass(frozen=True)
 class ExcelSizeValues:
+    sleeve_length_mm: float
+    cuff_flat_width_mm: float
+    cuff_width_mm: float
+
+
+@dataclass(frozen=True)
+class DxfSizeValues:
     sleeve_length_mm: float
     cuff_flat_width_mm: float
     cuff_width_mm: float
@@ -759,6 +795,9 @@ def read_size_values_from_excel(path: Path
 
         sizes: Dict[str, ExcelSizeValues] = {}
         seen_canonical = set()
+        standard_size_names = {
+            _canonical_size_name(size) for size in SIZE_ORDER}
+        last_size_row_number: Optional[int] = None
         for row_number, cells in rows[header_row_index + 1:]:
             name = _excel_size_name(cells.get(size_column, ""))
             has_measurement = any(
@@ -772,6 +811,21 @@ def read_size_values_from_excel(path: Path
                 raise SizeDataError(
                     f"工作表「{sheet_name}」第 {row_number} 列有尺寸數值，但尺寸名稱為空。")
             canonical = _canonical_size_name(name)
+            has_sleeve_value = any(
+                cells.get(column, "").strip()
+                for column in (sleeve_mm_column, sleeve_cm_column)
+                if column is not None)
+            has_cuff_value = any(
+                cells.get(column, "").strip()
+                for column in (cuff_mm_column, cuff_cm_column)
+                if column is not None)
+            if (sizes and last_size_row_number is not None
+                    and row_number > last_size_row_number + 1
+                    and canonical not in standard_size_names
+                    and not (has_sleeve_value and has_cuff_value)):
+                # Ignore a later appendix table that reuses measurement
+                # columns but is not part of the size list above.
+                break
             if canonical in seen_canonical:
                 raise SizeDataError(f"Excel 尺寸重複：{name}。")
             sleeve_length = _excel_mm_value(
@@ -782,6 +836,7 @@ def read_size_values_from_excel(path: Path
             sizes[name] = ExcelSizeValues(
                 sleeve_length, flat_width, flat_width * 2.0)
             seen_canonical.add(canonical)
+            last_size_row_number = row_number
         if not sizes:
             raise SizeDataError(
                 f"工作表「{sheet_name}」找到尺寸與尺寸欄位，但沒有有效資料列。")
@@ -790,21 +845,20 @@ def read_size_values_from_excel(path: Path
         "找不到包含新尺寸、袖長(mm 或 cm)、袖口寬平量(mm 或 cm)的工作表。")
 
 
-def merge_excel_size_values(table: SizeTable,
-                            excel_sizes: Mapping[str, ExcelSizeValues],
+def merge_named_size_values(table: SizeTable,
+                            values: Mapping[str, Tuple[float, float]],
                             batch_name: str
                             ) -> Tuple[SizeTable, int, int]:
-    """Merge workbook values into one named variant per size."""
+    """Merge sleeve length and full cuff width into a named variant."""
     variant_name = validate_batch_name(batch_name)
     merged = table.clone()
     existing = {_canonical_size_name(size): size for size in merged.sizes()}
     added = updated = 0
-    for name, values in excel_sizes.items():
+    for name, (sleeve_length_mm, cuff_width_mm) in values.items():
         canonical = _canonical_size_name(name)
         target = existing.get(canonical)
         if target is None:
-            merged.add_size(name, values.sleeve_length_mm,
-                            values.cuff_width_mm,
+            merged.add_size(name, sleeve_length_mm, cuff_width_mm,
                             default_variant=variant_name)
             existing[canonical] = name
             added += 1
@@ -814,15 +868,26 @@ def merge_excel_size_values(table: SizeTable,
             (variant for variant in variants
              if variant.casefold() == variant_name.casefold()), None)
         if matching_variant is None:
-            merged.add_variant(target, variant_name, values.sleeve_length_mm,
-                               values.cuff_width_mm)
+            merged.add_variant(target, variant_name, sleeve_length_mm,
+                               cuff_width_mm)
             added += 1
         else:
             merged.update_variant(target, matching_variant,
-                                  values.sleeve_length_mm,
-                                  values.cuff_width_mm)
+                                  sleeve_length_mm, cuff_width_mm)
             updated += 1
     return merged, added, updated
+
+
+def merge_excel_size_values(table: SizeTable,
+                            excel_sizes: Mapping[str, ExcelSizeValues],
+                            batch_name: str
+                            ) -> Tuple[SizeTable, int, int]:
+    """Merge workbook values into one named variant per size."""
+    named_values = {
+        name: (values.sleeve_length_mm, values.cuff_width_mm)
+        for name, values in excel_sizes.items()
+    }
+    return merge_named_size_values(table, named_values, batch_name)
 
 
 def delete_named_variant(table: SizeTable, batch_name: str
@@ -1396,17 +1461,29 @@ def find_sleeve(document: DxfDocument) -> SleeveAnalysis:
     for polyline in document.polylines:
         analysis = analyze_polyline(polyline, document.unit_scale_mm)
         if analysis is not None:
-            # The actual sleeve is the inner member when a cutting outline is
-            # also present.  Choosing the smallest valid closed area mirrors
-            # the source plugin's inner-outline preference.
             area = abs(polygon_area(sampled_closed(analysis.source.vertices)))
-            candidates.append((area, analysis))
+            paired_outer = find_seam_allowance(document, analysis)
+            layer_name = analysis.source.layer.strip().casefold()
+            is_seam_layer = any(
+                marker in layer_name
+                for marker in ("縫份", "縫線", "seam", "stitch"))
+            candidates.append((area, analysis, paired_outer, is_seam_layer))
     if not candidates:
         raise ValueError(
             "找不到可辨識的閉合袖片。請確認 DXF 含有至少 8 個頂點的袖片外框，"
             "且 POLYLINE/LWPOLYLINE 已閉合。")
-    analysis = min(candidates, key=lambda item: item[0])[1]
-    analysis.seam_allowance = find_seam_allowance(document, analysis)
+
+    # DXFs can contain several graded outlines and reference pieces. Prefer
+    # the named sewing line when it has a matching original cutting outline;
+    # this preserves the source direction and its notches. Fall back to any
+    # paired outline before using the smallest-area heuristic for older files.
+    paired_seam = [item for item in candidates
+                   if item[2] is not None and item[3]]
+    paired = [item for item in candidates if item[2] is not None]
+    named_seam = [item for item in candidates if item[3]]
+    preferred = paired_seam or paired or named_seam or candidates
+    _, analysis, paired_outer, _ = min(preferred, key=lambda item: item[0])
+    analysis.seam_allowance = paired_outer
     return analysis
 
 
@@ -1751,9 +1828,10 @@ def build_long_sleeve(analysis: SleeveAnalysis, unit_scale_mm: float,
 
     length_drawing = sleeve_length_mm / unit_scale_mm
     cuff_width_drawing = cuff_width_mm / unit_scale_mm
-    # The cap may extend beyond P3.  Move the new cuff toward P3 by that
-    # measured overhang so the actual-size contour has the requested span.
-    cuff_axial_distance = length_drawing + analysis.cap_minimum_axial
+    # Sleeve length is measured along the P3-to-cuff-center axis.  P3 is the
+    # point where that axis intersects the cap, so cap contour overhang must
+    # not be added to or subtracted from the requested axial distance.
+    cuff_axial_distance = length_drawing
     center = add(analysis.point3, scale(analysis.axis, cuff_axial_distance))
     upper = add(center, scale(analysis.transverse, cuff_width_drawing * 0.5))
     lower = add(center, scale(analysis.transverse, -cuff_width_drawing * 0.5))
@@ -1898,7 +1976,11 @@ def read_dxf(path: Path) -> DxfDocument:
                 except ValueError:
                     unit_code = 0
             break
-    unit_scale = {1: 25.4, 4: 1.0}.get(unit_code, 1.0)
+    unit_scale = DXF_UNIT_SCALE_MM.get(unit_code)
+    if unit_scale is None:
+        raise ValueError(
+            f"來源 DXF 的 $INSUNITS={unit_code} 不受支援；"
+            "請先轉換成英吋、毫米或其他可處理的單位。")
     polylines: List[Polyline] = []
     index = 0
     while index < len(pairs):
@@ -1981,6 +2063,80 @@ def read_dxf(path: Path) -> DxfDocument:
     return DxfDocument(polylines, unit_code, unit_scale)
 
 
+def is_sleeve_dxf_filename(filename: str) -> bool:
+    """Return whether a DXF filename names a sleeve, excluding cuff pieces."""
+    stem = Path(filename).stem
+    return "袖" in stem and "袖口" not in stem
+
+
+def read_dxf_size_values_from_folder(
+        folder: Path, available_sizes: Sequence[str]
+        ) -> Tuple[Dict[str, DxfSizeValues], List[str]]:
+    """Read one sleeve measurement per named size from a DXF folder tree."""
+    if not folder.is_dir():
+        raise ValueError(f"來源資料夾不存在或無法讀取：{folder}")
+    try:
+        source_files = sorted(
+            (path for path in folder.rglob("*")
+             if path.is_file() and path.suffix.lower() == ".dxf"),
+            key=lambda path: path.relative_to(folder).as_posix().casefold())
+    except OSError as error:
+        raise ValueError(f"無法讀取來源資料夾：{folder}\n原因：{error}") from error
+
+    sleeve_files = [path for path in source_files
+                    if is_sleeve_dxf_filename(path.name)]
+    grouped_sleeves: Dict[str, List[Tuple[Path, SleeveAnalysis]]] = {}
+    records: List[str] = [
+        f"找到 {len(source_files)} 個 DXF，依檔名篩出 {len(sleeve_files)} 個袖片候選；"
+        "略過不含「袖」或含「袖口」的檔案。"]
+    eligible_sleeve_count = 0
+    for input_path in sleeve_files:
+        display_path = input_path.relative_to(folder).as_posix()
+        if input_path.stem.startswith("#"):
+            records.append(f"略過 {display_path}：檔名以 # 開頭，非標準袖片檔。")
+            continue
+        detection = detect_size_from_filename(
+            input_path.name, available_sizes)
+        if not detection.recognized:
+            records.append(f"略過 {display_path}：{detection.reason}")
+            continue
+        eligible_sleeve_count += 1
+        try:
+            analysis = find_sleeve(read_dxf(input_path))
+        except (OSError, ValueError) as error:
+            records.append(
+                f"略過 {display_path}：未找到可辨識袖片（袖口片不作來源）；{error}")
+            continue
+        grouped_sleeves.setdefault(
+            detection.size or "", []).append((input_path, analysis))
+
+    values: Dict[str, DxfSizeValues] = {}
+    for size, sleeves in sorted(grouped_sleeves.items(),
+                              key=lambda item: size_sort_key(item[0])):
+        if len(sleeves) > 1:
+            filenames = "、".join(
+                path.relative_to(folder).as_posix()
+                for path, _analysis in sleeves)
+            records.append(
+                f"略過尺寸 {size}：找到多個可辨識袖片 DXF（{filenames}），"
+                "請保留一個袖片檔案。")
+            continue
+        _input_path, analysis = sleeves[0]
+        cuff_width = analysis.cuff_width_mm
+        values[size] = DxfSizeValues(
+            sleeve_length_mm=analysis.sleeve_length_mm,
+            cuff_flat_width_mm=cuff_width / 2.0,
+            cuff_width_mm=cuff_width)
+
+    if not source_files:
+        records.append("來源資料夾及其子資料夾沒有 DXF 檔案。")
+    elif not sleeve_files:
+        records.append("找不到檔名含「袖」且不含「袖口」的袖片 DXF。")
+    elif not eligible_sleeve_count:
+        records.append("找不到檔名含有效尺寸且不以 # 開頭的標準袖片 DXF。")
+    return values, records
+
+
 def _format_number(value: float) -> str:
     return f"{value:.10f}".rstrip("0").rstrip(".") or "0"
 
@@ -1990,7 +2146,8 @@ def _write_pair(lines: List[str], code: int, value: object) -> None:
 
 
 def write_dxf(path: Path, result: GenerationResult,
-              include_source: bool = False) -> None:
+              include_source: bool = False,
+              unit_code: Optional[int] = None) -> None:
     lines: List[str] = []
     _write_pair(lines, 999, "Python Sleeve Generator")
     _write_pair(lines, 0, "SECTION")
@@ -1998,7 +2155,9 @@ def write_dxf(path: Path, result: GenerationResult,
     _write_pair(lines, 9, "$ACADVER")
     _write_pair(lines, 1, "AC1009")
     _write_pair(lines, 9, "$INSUNITS")
-    _write_pair(lines, 70, 1 if result.input_unit_name == "inch" else 4)
+    if unit_code is None:
+        unit_code = 1 if result.input_unit_name == "inch" else 4
+    _write_pair(lines, 70, unit_code)
     _write_pair(lines, 0, "ENDSEC")
     _write_pair(lines, 0, "SECTION")
     _write_pair(lines, 2, "ENTITIES")
@@ -2046,7 +2205,7 @@ def generate_file(input_path: Path, output_path: Path, sleeve_length_mm: float,
                                sleeve_length_mm, cuff_width_mm,
                                seam_allowance_mm, cuff_fold_distance_mm,
                                mirror_join)
-    write_dxf(output_path, result, include_source)
+    write_dxf(output_path, result, include_source, document.unit_code)
     return result
 
 
@@ -2054,7 +2213,7 @@ def result_summary(result: GenerationResult, output_path: Path) -> str:
     return (
         f"完成：{output_path}\n"
         f"原始袖長（P3→袖口中心）：{result.analysis.sleeve_length_mm:.3f} mm\n"
-        f"袖山外伸校正：{result.cap_overhang_mm:.3f} mm\n"
+        f"袖山軸向外伸參考：{result.cap_overhang_mm:.3f} mm\n"
         f"生成內框袖長：{result.requested_length_mm:.3f} mm\n"
         f"生成袖口寬：{result.requested_cuff_width_mm:.3f} mm\n"
         f"縫份外框：{result.seam_allowance_mm:.3f} mm\n"
@@ -2109,10 +2268,16 @@ class SleeveGui(GUI_BASE):
         self.batch_folder_var = tk.StringVar()
         self.batch_name_var = tk.StringVar(value="長袖批次")
         self.extension_name_var = tk.StringVar(value="長袖")
+        self.dxf_folder_var = tk.StringVar()
+        self.dxf_batch_name_var = tk.StringVar()
         self.batch_json_path_var = tk.StringVar(
             value=str(self.size_table.path) if self.size_table is not None else "")
         self.batch_status_var = tk.StringVar(value="請選擇 Excel 尺寸表。")
         self._batch_sizes: Dict[str, ExcelSizeValues] = {}
+        self._batch_loaded_excel_path: Optional[Path] = None
+        self.dxf_status_var = tk.StringVar(value="請選擇來源 DXF 資料夾。")
+        self._dxf_sizes: Dict[str, DxfSizeValues] = {}
+        self._dxf_parsed_folder: Optional[Path] = None
         self._current_preview: Optional[PreviewGeometry] = None
         self._preview_message = "請選擇或拖入來源 DXF"
         self._preview_after_id = None
@@ -2127,6 +2292,8 @@ class SleeveGui(GUI_BASE):
                          self.cuff_fold_var, self.mirror_join_var):
             variable.trace_add("write", self._on_value_changed)
         self._build_widgets()
+        self.batch_excel_var.trace_add(
+            "write", self._on_batch_excel_path_changed)
         self._populate_size_choices()
         if self.batch_excel_var.get():
             self.after_idle(self._load_batch_excel)
@@ -2157,8 +2324,10 @@ class SleeveGui(GUI_BASE):
         self.notebook.grid(row=0, column=0, sticky="nsew")
         single_page = ttk.Frame(self.notebook, padding=10)
         batch_page = ttk.Frame(self.notebook, padding=10)
+        dxf_page = ttk.Frame(self.notebook, padding=10)
         self.notebook.add(single_page, text="單件轉換")
         self.notebook.add(batch_page, text="資料夾批次轉換")
+        self.notebook.add(dxf_page, text="DXF 尺寸解析")
         single_page.rowconfigure(0, weight=1)
         single_page.columnconfigure(0, weight=3)
         single_page.columnconfigure(1, weight=2)
@@ -2180,7 +2349,7 @@ class SleeveGui(GUI_BASE):
         self._path_row(panel, 1, "輸出 DXF：", self.output_var,
                        self._browse_output)
         self.drop_hint = ttk.Label(
-            panel, text="也可以把 .dxf 檔案拖到這個視窗",
+            panel, text="可拖放 .dxf 檔案；資料夾會在「DXF 尺寸解析」分頁遞迴解析",
             relief="groove", anchor="center")
         self.drop_hint.grid(
                       row=2, column=0, columnspan=3, sticky="ew", pady=(4, 8))
@@ -2250,6 +2419,7 @@ class SleeveGui(GUI_BASE):
         self.status.grid(row=17, column=0, columnspan=3, sticky="nsew")
         panel.rowconfigure(17, weight=1)
         self._build_batch_widgets(batch_page)
+        self._build_dxf_widgets(dxf_page)
 
     def _build_batch_widgets(self, parent: ttk.Frame) -> None:
         parent.columnconfigure(1, weight=1)
@@ -2317,6 +2487,160 @@ class SleeveGui(GUI_BASE):
                             pady=(4, 0))
         parent.rowconfigure(9, weight=1)
 
+    def _build_dxf_widgets(self, parent: ttk.Frame) -> None:
+        parent.columnconfigure(1, weight=1)
+        parent.rowconfigure(3, weight=1)
+        self._path_row(parent, 0, "來源 DXF 資料夾：",
+                       self.dxf_folder_var, self._browse_dxf_folder)
+        ttk.Label(parent, text="批次名稱：").grid(
+            row=1, column=0, sticky="w", padx=(0, 8), pady=4)
+        ttk.Entry(parent, textvariable=self.dxf_batch_name_var).grid(
+            row=1, column=1, sticky="ew", pady=4)
+        ttk.Label(parent, text="作為 JSON 款式名稱").grid(
+            row=1, column=2, sticky="w", padx=(8, 0), pady=4)
+        ttk.Label(parent, text="合併目標 JSON：").grid(
+            row=2, column=0, sticky="nw", padx=(0, 8), pady=4)
+        ttk.Label(parent, textvariable=self.batch_json_path_var,
+                  wraplength=760, justify="left").grid(
+                      row=2, column=1, columnspan=2, sticky="ew", pady=4)
+
+        columns = ("size", "sleeve", "flat", "cuff")
+        self.dxf_tree = ttk.Treeview(
+            parent, columns=columns, show="headings", height=12)
+        headings = (("size", "尺寸"), ("sleeve", "袖長（mm）"),
+                    ("flat", "袖口平量（mm）"),
+                    ("cuff", "寫入 JSON 袖口寬（mm）"))
+        for column, title in headings:
+            self.dxf_tree.heading(column, text=title)
+        self.dxf_tree.column("size", width=120, anchor="center")
+        for column in columns[1:]:
+            self.dxf_tree.column(column, width=190, anchor="e")
+        self.dxf_tree.grid(row=3, column=0, columnspan=3, sticky="nsew",
+                           pady=(8, 4))
+
+        actions = ttk.Frame(parent)
+        actions.grid(row=4, column=0, columnspan=3, sticky="ew", pady=4)
+        actions.columnconfigure((0, 1), weight=1)
+        ttk.Button(actions, text="解析 DXF 資料夾",
+                   command=self._parse_dxf_folder).grid(
+                       row=0, column=0, sticky="ew", padx=(0, 4))
+        ttk.Button(actions, text="合併寫入 JSON",
+                   command=self._merge_dxf_sizes).grid(
+                       row=0, column=1, sticky="ew", padx=(4, 0))
+        ttk.Label(parent, textvariable=self.dxf_status_var,
+                  wraplength=900, justify="left").grid(
+                      row=5, column=0, columnspan=3, sticky="ew", pady=4)
+        self.dxf_log = tk.Text(parent, height=8, state="disabled",
+                               wrap="word")
+        self.dxf_log.grid(row=6, column=0, columnspan=3, sticky="nsew",
+                          pady=(4, 0))
+        parent.rowconfigure(6, weight=1)
+
+    def _browse_dxf_folder(self) -> None:
+        folder = filedialog.askdirectory(title="選擇含有袖片 DXF 的資料夾")
+        if folder:
+            self.dxf_folder_var.set(folder)
+
+    def _parse_dxf_folder(self) -> None:
+        folder_text = self.dxf_folder_var.get().strip()
+        if not folder_text:
+            messagebox.showwarning("解析 DXF 資料夾", "請先選擇來源資料夾。")
+            return
+        if self.size_table is None:
+            messagebox.showerror("解析 DXF 資料夾", self._size_load_error)
+            return
+
+        folder = Path(folder_text).expanduser()
+        self._dxf_sizes = {}
+        self._dxf_parsed_folder = None
+        self.dxf_log.configure(state="normal")
+        self.dxf_log.delete("1.0", "end")
+        self.dxf_log.configure(state="disabled")
+        available_sizes = tuple(dict.fromkeys(
+            (*SIZE_ORDER, *self.size_table.sizes())))
+        try:
+            sizes, records = read_dxf_size_values_from_folder(
+                folder, available_sizes)
+        except (OSError, ValueError) as error:
+            self._dxf_sizes = {}
+            self._dxf_parsed_folder = None
+            for item in self.dxf_tree.get_children():
+                self.dxf_tree.delete(item)
+            self.dxf_status_var.set(f"DXF 資料夾解析失敗：{error}")
+            self._append_dxf_log(f"解析失敗：{error}")
+            return
+
+        self._dxf_sizes = sizes
+        self._dxf_parsed_folder = folder.resolve()
+        for item in self.dxf_tree.get_children():
+            self.dxf_tree.delete(item)
+        for name, values in sizes.items():
+            self.dxf_tree.insert(
+                "", "end", values=(
+                    name, _format_number(values.sleeve_length_mm),
+                    _format_number(values.cuff_flat_width_mm),
+                    _format_number(values.cuff_width_mm)))
+
+        summary = (f"已解析 {len(sizes)} 個有效尺寸：{folder}\n"
+                   "袖口平量為袖口開口寬的一半；JSON 寫入完整開口寬。")
+        self.dxf_status_var.set(summary)
+        self._append_dxf_log(summary)
+        for record in records:
+            self._append_dxf_log(record)
+
+    def _merge_dxf_sizes(self) -> None:
+        try:
+            batch_name = validate_batch_name(self.dxf_batch_name_var.get())
+        except SizeDataError as error:
+            messagebox.showwarning("批次名稱無效", str(error))
+            return
+        if not self._dxf_sizes:
+            messagebox.showinfo("合併寫入 JSON", "請先解析含有有效尺寸的 DXF 資料夾。")
+            return
+        folder_text = self.dxf_folder_var.get().strip()
+        if (not folder_text
+                or self._dxf_parsed_folder != Path(folder_text).expanduser().resolve()):
+            messagebox.showinfo(
+                "合併寫入 JSON", "來源資料夾已變更，請先重新解析 DXF。")
+            return
+        if self.size_table is None:
+            messagebox.showerror("合併尺寸失敗", self._size_load_error)
+            return
+
+        values = {
+            name: (measurement.sleeve_length_mm,
+                   measurement.cuff_width_mm)
+            for name, measurement in self._dxf_sizes.items()
+        }
+        try:
+            merged, added, updated = merge_named_size_values(
+                self.size_table, values, batch_name)
+            merged.save()
+        except (OSError, SizeDataError, ValueError) as error:
+            self.dxf_status_var.set(f"合併失敗：{error}")
+            self._append_dxf_log(f"合併失敗：{error}")
+            messagebox.showerror("合併尺寸失敗", str(error))
+            return
+
+        self.size_table = merged
+        self._populate_size_choices()
+        self.batch_json_path_var.set(str(merged.path))
+        if self.size_var.get() in self.size_table.sizes():
+            self._select_size(self.size_var.get(), manual=False,
+                              variant=self.variant_var.get())
+        summary = (f"已將 DXF 數值合併到「{batch_name}」款式："
+                   f"新增 {added} 個、更新 {updated} 個。\n"
+                   f"{merged.path}\n備份：{merged.path}.bak")
+        self.dxf_status_var.set(summary)
+        self._append_dxf_log(summary)
+        self._update_validation()
+
+    def _append_dxf_log(self, text: str) -> None:
+        self.dxf_log.configure(state="normal")
+        self.dxf_log.insert("end", text.rstrip() + "\n")
+        self.dxf_log.see("end")
+        self.dxf_log.configure(state="disabled")
+
     def _browse_batch_excel(self) -> None:
         filename = filedialog.askopenfilename(
             title="選擇尺寸 Excel",
@@ -2325,6 +2649,41 @@ class SleeveGui(GUI_BASE):
         if filename:
             self.batch_excel_var.set(filename)
             self._load_batch_excel()
+
+    def _on_batch_excel_path_changed(self, *_args) -> None:
+        path_text = self.batch_excel_var.get().strip()
+        try:
+            selected_path = (Path(path_text).expanduser().resolve()
+                             if path_text else None)
+        except OSError:
+            selected_path = None
+        if selected_path == self._batch_loaded_excel_path:
+            return
+        self._batch_loaded_excel_path = None
+        self._batch_sizes = {}
+        if hasattr(self, "batch_tree"):
+            for item in self.batch_tree.get_children():
+                self.batch_tree.delete(item)
+        if path_text:
+            self.batch_status_var.set(
+                "Excel 路徑已變更；請讀取尺寸，批次操作也會自動讀取目前路徑。")
+        else:
+            self.batch_status_var.set("請選擇 Excel 尺寸表。")
+
+    def _ensure_batch_excel_loaded(self) -> bool:
+        path_text = self.batch_excel_var.get().strip()
+        if not path_text:
+            self._load_batch_excel()
+            return False
+        try:
+            selected_path = Path(path_text).expanduser().resolve()
+        except OSError:
+            selected_path = Path(path_text).expanduser()
+        if (not self._batch_sizes
+                or selected_path != self._batch_loaded_excel_path):
+            self._load_batch_excel()
+        return (bool(self._batch_sizes)
+                and self._batch_loaded_excel_path == selected_path)
 
     def _browse_batch_folder(self) -> None:
         folder = filedialog.askdirectory(title="選擇來源 DXF 資料夾")
@@ -2341,6 +2700,7 @@ class SleeveGui(GUI_BASE):
             sizes = read_size_values_from_excel(path)
         except (OSError, SizeDataError, ValueError) as error:
             self._batch_sizes = {}
+            self._batch_loaded_excel_path = None
             for item in self.batch_tree.get_children():
                 self.batch_tree.delete(item)
             self.batch_status_var.set(f"Excel 讀取失敗：{error}")
@@ -2348,6 +2708,7 @@ class SleeveGui(GUI_BASE):
             return
 
         self._batch_sizes = sizes
+        self._batch_loaded_excel_path = path.resolve()
         for item in self.batch_tree.get_children():
             self.batch_tree.delete(item)
         for name, values in sizes.items():
@@ -2367,10 +2728,8 @@ class SleeveGui(GUI_BASE):
         except SizeDataError as error:
             messagebox.showwarning("批次名稱無效", str(error))
             return
-        if not self._batch_sizes:
-            self._load_batch_excel()
-            if not self._batch_sizes:
-                return
+        if not self._ensure_batch_excel_loaded():
+            return
         if self.size_table is None:
             messagebox.showerror("合併尺寸失敗", self._size_load_error)
             return
@@ -2448,10 +2807,8 @@ class SleeveGui(GUI_BASE):
         self._update_validation()
 
     def _batch_convert(self) -> None:
-        if not self._batch_sizes:
-            self._load_batch_excel()
-            if not self._batch_sizes:
-                return
+        if not self._ensure_batch_excel_loaded():
+            return
         folder_text = self.batch_folder_var.get().strip()
         source_folder = Path(folder_text).expanduser() if folder_text else None
         if source_folder is None or not source_folder.is_dir():
@@ -2748,11 +3105,18 @@ class SleeveGui(GUI_BASE):
 
     def _handle_dropped_files(self, paths: Sequence[str]) -> None:
         if len(paths) != 1:
-            messagebox.showwarning("拖放來源檔案", "一次請拖放一個 DXF 檔案。")
+            messagebox.showwarning(
+                "拖放來源", "一次請拖放一個 DXF 檔案或一個資料夾。")
             return
         path = Path(paths[0])
+        if path.is_dir():
+            self.dxf_folder_var.set(str(path))
+            self.notebook.select(self.notebook.tabs()[2])
+            self._parse_dxf_folder()
+            return
         if path.suffix.lower() != ".dxf":
-            messagebox.showwarning("拖放來源檔案", "來源檔案必須是 .dxf。")
+            messagebox.showwarning(
+                "拖放來源", "請拖放 .dxf 檔案或包含 DXF 檔案的資料夾。")
             return
         self._set_input_path(path)
         self._set_status(f"已加入來源 DXF：{path}")
